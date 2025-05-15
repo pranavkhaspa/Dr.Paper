@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DR.Paper - Sickness Certificate Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    /* Pulse animation for button */
+    @keyframes pulse-slow {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .pulse-slow {
+      animation: pulse-slow 3s ease-in-out infinite;
+    }
+    /* Certificate styles */
+    #certificateLayout {
+      width: 210mm;
+      height: 297mm; /* A4 dimensions */
+      padding: 20mm; /* This acts as the page margin */
+      box-sizing: border-box;
+      font-family: 'Cambria', serif;
+      background: white;
+      color: #222;
+      position: absolute;
+      left: -9999px; /* Hide off-screen, used for PDF generation */
+
+      display: flex;
+      flex-direction: column;
+    }
+    #certificateLayout .content {
+      flex-grow: 1; /* Allows this section to expand and fill available space */
+      display: flex;
+      flex-direction: column;
+    }
+    #certificateLayout .header {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    #certificateLayout .header h2 {
+      margin: 0;
+      font-size: 20px;
+      color: #003366;
+    }
+    #certificateLayout .header p {
+      margin: 2px 0;
+      font-size: 14px;
+      color: #444;
+    }
+    #certificateLayout .divider {
+      border-top: 2px solid #cccccc;
+      margin-top: 10px;
+      margin-bottom: 30px;
+    }
+    #certificateLayout .cert-title {
+      text-align: center;
+      text-decoration: underline;
+      font-size: 18px;
+      color: #003366;
+      margin-top: 30px;
+      margin-bottom: 20px;
+    }
+    #certificateLayout .cert-date {
+      text-align: right;
+      font-size: 14px;
+      margin-bottom: 20px;
+      color: #003366;
+    }
+    #certificateLayout .body-content {
+      font-size: 16px;
+      line-height: 1.8;
+      flex-grow: 1; /* Allows body content to take space if needed, pushing signature down */
+    }
+    #certificateLayout .body-content strong {
+      color: #003366;
+    }
+
+    #certificateLayout .signature-wrapper {
+      margin-top: auto; /* Pushes this block to the bottom of its flex container (.content) */
+    }
+    #certificateLayout .signature-space {
+      height: 60px; /* Adjust space for handwritten signature if needed */
+    }
+    #certificateLayout .signature {
+      text-align: right;
+      font-size: 15px;
+      margin-top: 5px; /* Small space between line (if any) and text */
+      color: #003366;
+    }
+    #certificateLayout .footer {
+      font-size: 13px;
+      text-align: center;
+      border-top: 1px solid #cccccc;
+      padding-top: 10px;
+      margin-top: 20px; /* Space between bottom of .content and top of .footer */
+      color: #555;
+    }
+    #certificateLayout .footer p {
+      margin: 2px 0;
+    }
+    #certificateLayout .footer strong {
+      color: #003366;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-tr from-green-100 via-white to-green-100 min-h-screen flex flex-col">
+
+  <header class="bg-white shadow-md sticky top-0 z-50">
+    <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+      <h1 class="text-3xl font-extrabold text-green-700 tracking-wide">DR.Paper</h1>
+      <a href="index.html" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition">
+        Back to Home
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-grow flex flex-col items-center px-6 py-10">
+    <div class="w-full max-w-xl bg-white rounded-xl shadow-xl p-8">
+      <h2 class="text-2xl font-extrabold text-green-800 mb-6 text-center tracking-wide">
+        Sickness Certificate Generator
+      </h2>
+
+      <form id="certForm" class="space-y-6" autocomplete="off" spellcheck="false">
+        <div>
+          <label for="patientName" class="block font-semibold text-gray-800 mb-2">Patient Full Name</label>
+          <input type="text" id="patientName" name="patientName" required placeholder="Enter patient name"
+            class="w-full border border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition" autocomplete="off">
+        </div>
+
+        <div>
+          <label for="illness" class="block font-semibold text-gray-800 mb-2">Illness / Condition</label>
+          <input type="text" id="illness" name="illness" required placeholder="Enter illness (e.g., Flu, Cold)"
+            class="w-full border border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition" autocomplete="off">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label for="fromDate" class="block font-semibold text-gray-800 mb-2">Start Date</label>
+            <input type="date" id="fromDate" name="fromDate" required
+              class="w-full border border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition" autocomplete="off">
+          </div>
+          <div>
+            <label for="toDate" class="block font-semibold text-gray-800 mb-2">End Date</label>
+            <input type="date" id="toDate" name="toDate" required
+              class="w-full border border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition" autocomplete="off">
+          </div>
+        </div>
+
+        <div>
+          <label for="issueDate" class="block font-semibold text-gray-800 mb-2">Certificate Date (Issue Date)</label>
+          <input type="date" id="issueDate" name="issueDate" required
+            class="w-full border border-green-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 transition" autocomplete="off">
+        </div>
+
+        <button type="button" id="generateAndViewBtn"
+          class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-4 rounded-lg text-lg shadow-md transition pulse-slow">
+          Generate Certificate
+        </button>
+      </form>
+    </div>
+
+    <div id="certificateLayout">
+      <div class="content">
+        <div class="header">
+          <h2>Sri Ramana Homoeo Clinic</h2>
+          <p>Dr. K V Ramana, MD (H)</p>
+          <p>Consulting Homeopath <b>(Reg. No. 5005)</b></p>
+          <p><b style="color: #003366;">Time:</b> 10am to 2pm – 5pm to 9pm</p>
+          <div class="divider"></div>
+        </div>
+
+        <div class="cert-title">Sickness Certificate</div>
+
+        <div class="cert-date"><strong>Date:</strong> <span id="previewIssueDate">[Certificate Date]</span></div>
+
+        <div class="body-content">
+          <p><strong>TO WHOMSOEVER IT MAY CONCERN</strong></p>
+          <p>
+            This is to certify that <strong id="previewPatientName">[Patient Name]</strong> is suffering from
+            <strong id="previewIllness">[Illness]</strong> since <strong id="previewFromDate">[Start Date]</strong>.
+          </p>
+          <p>
+            He has been under my treatment from <strong id="previewFromDate2">[Start Date]</strong> to <strong id="previewToDate">[End Date]</strong>
+            and has been advised bed-rest at home from <strong id="previewFromDate3">[Start Date]</strong> till the period of infectivity
+            has passed or till he is found fit to resume his daily activities.
+          </p>
+        </div>
+        
+        <div class="signature-wrapper">
+            <div class="signature-space"></div>
+            <div class="signature">Dr. K V Ramana</div>
+        </div>
+      </div> 
+      
+      <div class="footer">
+        <p><strong>Clinic Address:</strong> Shop No. 29, Jeeyar Complex, Fort Road, Vizianagaram, Andhra Pradesh – 535002</p>
+        <p><strong>Mobile:</strong> 9701068977</p>
+      </div>
+    </div>
+
+    <div id="pdfPreviewSection" class="w-full max-w-3xl bg-white rounded-xl shadow-xl p-6 mt-10 hidden">
+      <h2 class="text-2xl font-semibold text-gray-700 mb-6 text-center tracking-tight">Generated PDF Preview</h2>
+      <iframe id="pdfPreviewIframe" class="w-full h-[700px] border border-green-300 rounded-lg" title="PDF Preview"></iframe>
+      <div class="mt-6 flex justify-center">
+        <a id="downloadPdfBtn" href="#" download="Medical_Certificate.pdf"
+          class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white px-8 py-3 rounded-lg font-semibold shadow-md transition">
+          Download PDF
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Initialize jsPDF
+    const { jsPDF } = window.jspdf;
+
+    // Set issue date to today - ONLY THIS DATE IS DEFAULTED
+    document.getElementById('issueDate').value = new Date().toISOString().split('T')[0];
+
+    // fromDate and toDate will now be empty by default.
+    // document.getElementById('fromDate').value = new Date().toISOString().split('T')[0]; // REMOVED/COMMENTED
+    // let tomorrow = new Date(); // REMOVED/COMMENTED
+    // tomorrow.setDate(tomorrow.getDate() + 1); // REMOVED/COMMENTED
+    // document.getElementById('toDate').value = tomorrow.toISOString().split('T')[0]; // REMOVED/COMMENTED
+
+
+    // Function to format date as Month Day, Year
+    function formatDate(dateString) {
+      if (!dateString) return '[Date]'; // If date is empty, show placeholder
+      const date = new Date(dateString + 'T00:00:00'); // Ensure parsing as local, not UTC
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // PDF generation
+    document.getElementById('generateAndViewBtn').addEventListener('click', async function() {
+      const patientName = document.getElementById('patientName').value;
+      const illness = document.getElementById('illness').value;
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      const issueDate = document.getElementById('issueDate').value; // This will have the default value
+
+      if (!patientName || !illness || !fromDate || !toDate || !issueDate) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      const generateBtn = this;
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Generating...';
+
+      // Update certificate content
+      document.getElementById('previewPatientName').textContent = patientName;
+      document.getElementById('previewIllness').textContent = illness;
+      document.getElementById('previewFromDate').textContent = formatDate(fromDate);
+      document.getElementById('previewFromDate2').textContent = formatDate(fromDate); 
+      document.getElementById('previewFromDate3').textContent = formatDate(fromDate); 
+      document.getElementById('previewToDate').textContent = formatDate(toDate);
+      document.getElementById('previewIssueDate').textContent = formatDate(issueDate);
+
+      const certificateElement = document.getElementById('certificateLayout');
+
+      try {
+        const canvas = await html2canvas(certificateElement, {
+          scale: 2, 
+          useCORS: true,
+          width: certificateElement.offsetWidth, 
+          height: certificateElement.offsetHeight, 
+          windowWidth: certificateElement.scrollWidth,
+          windowHeight: certificateElement.scrollHeight
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+        const pdfBlob = pdf.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+
+        document.getElementById('pdfPreviewIframe').src = pdfUrl;
+        document.getElementById('pdfPreviewSection').classList.remove('hidden');
+
+        const downloadBtn = document.getElementById('downloadPdfBtn');
+        const cleanName = patientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        downloadBtn.download = `${cleanName}_medical_certificate.pdf`;
+        downloadBtn.href = pdfUrl;
+
+        document.getElementById('pdfPreviewSection').scrollIntoView({ behavior: 'smooth' });
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+        alert("Error generating PDF. See console for details. Error: " + error.message);
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Certificate';
+      }
+    });
+  </script>
+
+</body>
+</html>
